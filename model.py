@@ -8,6 +8,7 @@ Responsibilities:
 - Construct lag features for autoregressive supervised learning.
 - Train baseline Linear Regression and Random Forest Regressors with chronological splits.
 - Multi-model price forecasting, evaluation, and cross-asset comparison.
+- Statistical summarization for UI and Grounded AI Context.
 """
 
 from typing import Dict, Tuple, List, Any
@@ -78,6 +79,71 @@ def add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
     processed["MA7"] = processed["Close"].rolling(window=7).mean()
     processed["MA30"] = processed["Close"].rolling(window=30).mean()
     return processed
+
+
+def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
+    """
+    Compute key financial statistics, trend metrics, and sparkline points
+    from processed historical data.
+
+    Args:
+        df: DataFrame containing OHLC and moving average columns.
+        ticker: Ticker symbol string.
+
+    Returns:
+        Dict[str, Any]: Structured dictionary of factual market metrics.
+    """
+    clean_ticker = ticker.strip().upper()
+
+    # Currency determination
+    if clean_ticker.endswith(".NS") or clean_ticker.endswith(".BO"):
+        currency = "₹"
+    elif clean_ticker.endswith(".L"):
+        currency = "£"
+    elif clean_ticker.endswith(".TO"):
+        currency = "C$"
+    elif clean_ticker.endswith(".DE") or clean_ticker.endswith(".PA"):
+        currency = "€"
+    else:
+        currency = "$"
+
+    close_series = df["Close"]
+    current_price = float(close_series.iloc[-1])
+    first_price = float(close_series.iloc[0])
+    period_change = current_price - first_price
+    period_change_pct = (period_change / first_price) * 100
+    period_high = float(df["High"].max())
+    period_low = float(df["Low"].min())
+
+    # Latest MA readings
+    ma7_val = float(df["MA7"].iloc[-1]) if "MA7" in df.columns and not np.isnan(df["MA7"].iloc[-1]) else current_price
+    ma30_val = float(df["MA30"].iloc[-1]) if "MA30" in df.columns and not np.isnan(df["MA30"].iloc[-1]) else current_price
+
+    if ma7_val > ma30_val:
+        trend_status = "MA7 > MA30 (short-term moving average above longer rolling trend)"
+    elif ma7_val < ma30_val:
+        trend_status = "MA7 < MA30 (short-term moving average below longer rolling trend)"
+    else:
+        trend_status = "MA7 == MA30 (moving averages converging)"
+
+    # Recent 12 closes for sparkline
+    sparkline_points = [round(float(p), 2) for p in close_series.iloc[-12:].tolist()]
+
+    return {
+        "ticker": clean_ticker,
+        "currency": currency,
+        "current_price": round(current_price, 2),
+        "first_price": round(first_price, 2),
+        "period_change": round(period_change, 2),
+        "period_change_pct": round(period_change_pct, 2),
+        "period_high": round(period_high, 2),
+        "period_low": round(period_low, 2),
+        "ma7": round(ma7_val, 2),
+        "ma30": round(ma30_val, 2),
+        "trend_status": trend_status,
+        "data_points": len(df),
+        "sparkline": sparkline_points,
+    }
 
 
 def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
@@ -159,9 +225,7 @@ def train_and_predict_models(df: pd.DataFrame) -> Dict[str, float]:
 
 
 def train_and_predict(df: pd.DataFrame) -> float:
-    """
-    Legacy wrapper for single Linear Regression prediction.
-    """
+    """Legacy wrapper for single Linear Regression prediction."""
     predictions = train_and_predict_models(df)
     return predictions["Linear Regression"]
 
@@ -220,9 +284,7 @@ def evaluate_models(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, Dict[
 
 
 def evaluate_model(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, float]:
-    """
-    Legacy wrapper returning evaluation metrics for Linear Regression.
-    """
+    """Legacy wrapper returning evaluation metrics for Linear Regression."""
     evals = evaluate_models(df, test_size=test_size)
     return evals["Linear Regression"]
 
@@ -251,16 +313,14 @@ def compare_stocks(tickers: List[str], period: str = "6mo") -> Tuple[pd.DataFram
         try:
             df = get_stock_data(clean, period=period)
             close = df["Close"]
-            # Cumulative percentage return from day 0
             base_price = close.iloc[0]
             pct_series = ((close - base_price) / base_price) * 100
             returns_df[clean] = pct_series
 
-            # Daily returns standard deviation (proxy for volatility)
             daily_pct = close.pct_change().dropna()
             stats[clean] = {
                 "total_return": round(float(pct_series.iloc[-1]), 2),
-                "volatility": round(float(daily_pct.std() * np.sqrt(252) * 100), 2),  # Annualized volatility %
+                "volatility": round(float(daily_pct.std() * np.sqrt(252) * 100), 2),
                 "current_price": round(float(close.iloc[-1]), 2),
             }
         except Exception:
