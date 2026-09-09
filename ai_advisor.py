@@ -3,7 +3,7 @@ ai_advisor.py — Grounded AI Market Advisor (RAG-Lite) for StockPulse.
 
 Responsibilities:
 - Build a compact, strictly factual context block from computed metrics and ML evaluations.
-- Interface with the Groq API (llama-3.1-8b-instant) using grounded system instructions.
+- Interface with the Groq API (Qwen-3.8 / Llama / GPT-OSS) using grounded system instructions.
 - Provide defensive fallback synthesis when an API key is absent or network fails.
 - Provide follow-up Q&A grounded exclusively in the active ticker's context.
 """
@@ -17,6 +17,14 @@ try:
     GROQ_AVAILABLE = True
 except ImportError:
     GROQ_AVAILABLE = False
+
+# Preferred models in order of availability on Groq
+GROQ_MODEL_CANDIDATES = [
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant",
+    "groq/compound-mini",
+]
 
 
 def build_context(
@@ -141,27 +149,32 @@ def get_ai_insight(context: str, custom_api_key: Optional[str] = None) -> str:
     if not GROQ_AVAILABLE or not api_key:
         return _generate_fallback_insight(context)
 
-    try:
-        client = Groq(api_key=api_key)
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": get_system_prompt()},
-                {
-                    "role": "user",
-                    "content": f"Analyze the following retrieved market data:\n\n{context}",
-                },
-            ],
-            temperature=0.2,  # Low temperature for strict factual adherence
-            max_tokens=350,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as err:
-        # Fall back gracefully on network or auth failure
-        return (
-            f"> ⚠️ *Note: Live Groq LLM unavailable ({err}). Displaying grounded synthesis fallback:*\n\n"
-            + _generate_fallback_insight(context)
-        )
+    client = Groq(api_key=api_key)
+    last_err = None
+
+    for model_name in GROQ_MODEL_CANDIDATES:
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": get_system_prompt()},
+                    {
+                        "role": "user",
+                        "content": f"Analyze the following retrieved market data:\n\n{context}",
+                    },
+                ],
+                temperature=0.2,
+                max_tokens=350,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as err:
+            last_err = err
+            continue
+
+    return (
+        f"> ⚠️ *Note: Groq LLM unavailable ({last_err}). Displaying grounded synthesis fallback:*\n\n"
+        + _generate_fallback_insight(context)
+    )
 
 
 def answer_followup(
@@ -178,39 +191,41 @@ def answer_followup(
     if not GROQ_AVAILABLE or not api_key:
         return (
             "I am currently operating in Zero-Key Grounded Mode. "
-            "To enable interactive conversational Q&A with Groq Llama-3.1, "
+            "To enable interactive conversational Q&A with Groq, "
             "please configure a free `GROQ_API_KEY` in the sidebar or `.streamlit/secrets.toml`."
         )
 
-    try:
-        client = Groq(api_key=api_key)
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are the StockPulse AI Advisor answering questions about a specific stock.\n"
-                    "RULES:\n"
-                    "1. Rely ONLY on the retrieved context below.\n"
-                    "2. If the user asks something outside this data (e.g. predictions about next year, news, other stocks), "
-                    "explicitly say: 'I don't have enough information in the current StockPulse context to answer that reliably.'\n"
-                    "3. Never recommend buying or selling.\n"
-                    f"\nCURRENT RETRIEVED CONTEXT:\n{context}"
-                ),
-            }
-        ]
+    client = Groq(api_key=api_key)
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are the StockPulse AI Advisor answering questions about a specific stock.\n"
+                "RULES:\n"
+                "1. Rely ONLY on the retrieved context below.\n"
+                "2. If the user asks something outside this data (e.g. predictions about next year, news, other stocks), "
+                "explicitly say: 'I don't have enough information in the current StockPulse context to answer that reliably.'\n"
+                "3. Never recommend buying or selling.\n"
+                f"\nCURRENT RETRIEVED CONTEXT:\n{context}"
+            ),
+        }
+    ]
 
-        # Append recent conversation history (capped to last 4 turns)
-        for msg in chat_history[-4:]:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+    for msg in chat_history[-4:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
 
-        messages.append({"role": "user", "content": question})
+    messages.append({"role": "user", "content": question})
 
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.2,
-            max_tokens=250,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as err:
-        return f"Unable to process follow-up question: {err}"
+    for model_name in GROQ_MODEL_CANDIDATES:
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=250,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception:
+            continue
+
+    return "Unable to process follow-up with current AI model configuration."
