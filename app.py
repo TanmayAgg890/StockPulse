@@ -1,13 +1,14 @@
 """
 app.py — StockPulse: Celestial Financial Intelligence Workspace.
 
-Design System: Powered by Google Stitch ("The Celestial Financial Architect").
-Tokens:
-- Background Canvas: #0C1324 (Deep Space Navy)
-- Surface Containers: #141B2D (Base Cards), #18233C (Elevated), #232A3C (High)
-- Accents: #FFB800 (Solar Gold), #38EF7D (Emerald Positive), #FF6B6B (Negative)
-- Typography: Plus Jakarta Sans (Headlines), Inter (Body), JetBrains Mono (Financial Data)
-- Layout: Bento Grid with Bottom-Pinned Conversational AI Chat & History Navigation.
+Design System: Google Stitch ("The Celestial Financial Architect").
+Features:
+- Robust Ticker Navigation (Form-isolated search + Instant Category Discovery).
+- Interactive Timeframe Selector (1M, 3M, 6M, 1Y).
+- Visual Price Range Bar (Period Low to High Gauge).
+- One-Click Quick Question Chips for AI Advisor.
+- Permanent Bottom-Pinned Conversational AI Chat with Dynamic Context Re-Feeding.
+- Tactile Liquid "Filling-Up" Button Hover Animations.
 """
 
 from typing import List, Dict, Any
@@ -48,7 +49,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. Session State Management
+# 2. Session State Initialization
 # -----------------------------------------------------------------------------
 if "selected_ticker" not in st.session_state:
     st.session_state["selected_ticker"] = "RELIANCE.NS"
@@ -68,16 +69,23 @@ if "chat_histories" not in st.session_state:
 if "user_groq_key" not in st.session_state:
     st.session_state["user_groq_key"] = ""
 
+if "timeframe" not in st.session_state:
+    st.session_state["timeframe"] = "6M"
+
+if "quick_question_trigger" not in st.session_state:
+    st.session_state["quick_question_trigger"] = None
+
 
 def navigate_to_ticker(new_ticker: str):
-    """Navigate to a new ticker and push the previous ticker to history."""
+    """Reliably navigate to a new ticker symbol."""
     clean = new_ticker.strip().upper()
-    if clean and clean != st.session_state["selected_ticker"]:
-        cur = st.session_state["selected_ticker"]
-        if not st.session_state["history"] or st.session_state["history"][-1] != cur:
-            st.session_state["history"].append(cur)
-            if len(st.session_state["history"]) > 15:
-                st.session_state["history"].pop(0)
+    if clean:
+        cur = st.session_state.get("selected_ticker", "")
+        if cur and cur != clean:
+            if not st.session_state["history"] or st.session_state["history"][-1] != cur:
+                st.session_state["history"].append(cur)
+                if len(st.session_state["history"]) > 15:
+                    st.session_state["history"].pop(0)
         st.session_state["selected_ticker"] = clean
         st.rerun()
 
@@ -125,7 +133,7 @@ else:
 st.markdown(
     f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
     html, body, [class*="css"] {{
         font-family: 'Inter', sans-serif;
@@ -137,7 +145,7 @@ st.markdown(
         color: #DBE2FB;
     }}
 
-    /* Text Selection & Cursors */
+    /* Global Selection */
     ::selection {{
         background: {theme_accent} !important;
         color: #0C1324 !important;
@@ -194,7 +202,7 @@ st.markdown(
         transform: translateY(0px) !important;
     }}
 
-    /* Stitch Command Header */
+    /* Header Container */
     .header-container {{
         display: flex;
         justify-content: space-between;
@@ -245,7 +253,7 @@ st.markdown(
         100% {{ transform: scale(0.95); opacity: 0.7; }}
     }}
 
-    /* Stitch Bento Metric Cards (No Wrapping, Tactile) */
+    /* Bento Metric Cards (No Wrapping, Tactile) */
     .bento-card {{
         background: #141B2D;
         border: 1px solid rgba(255, 255, 255, 0.07);
@@ -293,15 +301,28 @@ st.markdown(
     .delta-pos {{ color: #38EF7D; }}
     .delta-neg {{ color: #FF6B6B; }}
 
-    /* AI Advisor Chat Container */
-    .ai-box-card {{
-        background: #141B2D;
-        border: 1px solid {theme_accent}44;
-        border-radius: 8px;
-        padding: 1rem;
+    /* Range Bar Container */
+    .range-bar-box {{
+        background: #0E1424;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 6px;
+        padding: 0.5rem 0.8rem;
+        margin-bottom: 0.8rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.78rem;
+    }}
+    .range-progress-bg {{
+        width: 100%;
+        height: 6px;
+        background: #18233C;
+        border-radius: 3px;
+        margin: 6px 0;
+        position: relative;
+    }}
+    .range-progress-fill {{
         height: 100%;
-        display: flex;
-        flex-direction: column;
+        background: linear-gradient(90deg, #38EF7D 0%, {theme_accent} 100%);
+        border-radius: 3px;
     }}
     </style>
     """,
@@ -312,9 +333,11 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # 4. Cached Data Pipelines
 # -----------------------------------------------------------------------------
+TIMEFRAME_MAP = {"1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y"}
+
 @st.cache_data(ttl=3600, show_spinner=False)
-def get_cached_stock_data(ticker_symbol: str) -> pd.DataFrame:
-    return get_stock_data(ticker_symbol)
+def get_cached_stock_data(ticker_symbol: str, tf_code: str) -> pd.DataFrame:
+    return get_stock_data(ticker_symbol, period=tf_code)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -323,7 +346,7 @@ def get_cached_comparison(tickers: List[str]):
 
 
 # -----------------------------------------------------------------------------
-# 5. Sidebar: Watchlist & Settings
+# 5. Sidebar: Watchlist, Controls, & Force Refresh
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown('<div class="brand-title">📈 StockPulse</div>', unsafe_allow_html=True)
@@ -359,6 +382,12 @@ with st.sidebar:
 
     st.divider()
 
+    # Data Refresh Button (User Comfort)
+    if st.button("🔄 Force Refresh Market Feed", use_container_width=True):
+        st.cache_data.clear()
+        st.session_state["ai_cache"].clear()
+        st.rerun()
+
     # Optional Groq Config
     with st.expander("🔑 AI Advisor API Config", expanded=False):
         st.caption("Configured in `.streamlit/secrets.toml`. Enter override key if needed:")
@@ -388,7 +417,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Search & Navigation Controls Row
+# Search Bar Form (Isolated so typing never overrides button clicks)
 nav_col1, nav_col2, nav_col3 = st.columns([1.2, 4.5, 1.3])
 
 with nav_col1:
@@ -400,15 +429,20 @@ with nav_col1:
         st.button("⬅ Back", disabled=True, use_container_width=True)
 
 with nav_col2:
-    typed_ticker = st.text_input(
-        "Search Ticker Symbol:",
-        value=active_ticker,
-        placeholder="Enter symbol (e.g. RELIANCE.NS, TCS.NS, AAPL, NVDA)...",
-        label_visibility="collapsed",
-    ).strip().upper()
+    with st.form("search_input_form", clear_on_submit=False):
+        sf_input, sf_btn = st.columns([4.8, 1.2])
+        with sf_input:
+            search_val = st.text_input(
+                "Search Ticker:",
+                value=active_ticker,
+                placeholder="Type symbol (e.g. TCS.NS, NVDA, AAPL) & search...",
+                label_visibility="collapsed",
+            )
+        with sf_btn:
+            submitted_search = st.form_submit_button("🔍 Search", use_container_width=True)
 
-    if typed_ticker and typed_ticker != active_ticker:
-        navigate_to_ticker(typed_ticker)
+    if submitted_search and search_val:
+        navigate_to_ticker(search_val)
 
 with nav_col3:
     in_wl = active_ticker in st.session_state["watchlist"]
@@ -421,7 +455,7 @@ with nav_col3:
         st.rerun()
 
 # Category Discovery Buttons
-st.markdown('<div class="mono-label" style="margin-top: 0.3rem;">QUICK DISCOVERY CATEGORIES</div>', unsafe_allow_html=True)
+st.markdown('<div class="mono-label" style="margin-top: 0.2rem;">QUICK DISCOVERY CATEGORIES</div>', unsafe_allow_html=True)
 c_tab1, c_tab2, c_tab3 = st.tabs(["🇮🇳 India Trending", "🇺🇸 US Popular", "🌍 Global Benchmarks"])
 
 def render_category_buttons(items: List[Dict[str, str]], prefix: str):
@@ -442,7 +476,7 @@ with c_tab2:
 with c_tab3:
     render_category_buttons(GLOBAL_INDICES, "btn_glob")
 
-st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
 
 # -----------------------------------------------------------------------------
@@ -458,9 +492,12 @@ tab_main, tab_comparator = st.tabs([
 # TAB 1: WORKSPACE & AI ADVISOR
 # =============================================================================
 with tab_main:
-    with st.spinner(f"Fetching market data for {active_ticker}..."):
+    tf_selected = st.session_state["timeframe"]
+    tf_code = TIMEFRAME_MAP.get(tf_selected, "6mo")
+
+    with st.spinner(f"Fetching market data for {active_ticker} ({tf_selected})..."):
         try:
-            raw_data = get_cached_stock_data(active_ticker)
+            raw_data = get_cached_stock_data(active_ticker, tf_code)
         except ValueError as val_e:
             st.error(f"❌ **Market Data Error:** {val_e}")
             raw_data = None
@@ -517,7 +554,7 @@ with tab_main:
                 st.markdown(
                     f"""
                     <div class="bento-card">
-                        <div class="mono-label">6-MONTH CHANGE</div>
+                        <div class="mono-label">{tf_selected} PERIOD CHANGE</div>
                         <div class="metric-val {'delta-pos' if stats['period_change_pct'] >= 0 else 'delta-neg'}">
                             {stats['period_change_pct']:+.2f}%
                         </div>
@@ -531,7 +568,7 @@ with tab_main:
                 st.markdown(
                     f"""
                     <div class="bento-card">
-                        <div class="mono-label">6-MONTH HIGH</div>
+                        <div class="mono-label">{tf_selected} HIGH</div>
                         <div class="metric-val">{curr}{stats['period_high']:,.2f}</div>
                         <div class="metric-delta" style="color: #9E8F78;">Peak Observed</div>
                     </div>
@@ -543,7 +580,7 @@ with tab_main:
                 st.markdown(
                     f"""
                     <div class="bento-card">
-                        <div class="mono-label">6-MONTH LOW</div>
+                        <div class="mono-label">{tf_selected} LOW</div>
                         <div class="metric-val">{curr}{stats['period_low']:,.2f}</div>
                         <div class="metric-delta" style="color: #9E8F78;">Trough Observed</div>
                     </div>
@@ -551,8 +588,39 @@ with tab_main:
                     unsafe_allow_html=True,
                 )
 
-            # Row 2: Interactive Plotly Chart
+            # Comfy Feature: Visual Price Range Position Bar
+            st.markdown(
+                f"""
+                <div class="range-bar-box">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>🟢 {tf_selected} Low: <b>{curr}{stats['period_low']:,.2f}</b></span>
+                        <span>Current: <b>{curr}{stats['current_price']:,.2f}</b> ({stats['range_position']}%)</span>
+                        <span>🔴 {tf_selected} High: <b>{curr}{stats['period_high']:,.2f}</b></span>
+                    </div>
+                    <div class="range-progress-bg">
+                        <div class="range-progress-fill" style="width: {stats['range_position']}%;"></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Row 2: Chart Controls (Timeframe Selector) & Plotly Chart
             chart_header = get_ticker_display_name(active_ticker)
+            
+            c_header_col, c_tf_col = st.columns([3.5, 1.5])
+            with c_header_col:
+                st.markdown(f"### 📊 {chart_header}")
+            with c_tf_col:
+                # Comfy Timeframe Selector
+                tf_cols = st.columns(4)
+                for i, tf_lbl in enumerate(["1M", "3M", "6M", "1Y"]):
+                    is_active_tf = tf_lbl == st.session_state["timeframe"]
+                    tf_btn_txt = f"[{tf_lbl}]" if is_active_tf else tf_lbl
+                    if tf_cols[i].button(tf_btn_txt, key=f"tf_{tf_lbl}", use_container_width=True):
+                        st.session_state["timeframe"] = tf_lbl
+                        st.rerun()
+
             fig = go.Figure()
 
             if "Candlestick" in chart_mode:
@@ -604,12 +672,6 @@ with tab_main:
             fig.update_layout(
                 paper_bgcolor="rgba(20, 27, 45, 0.7)",
                 plot_bgcolor="rgba(20, 27, 45, 0.7)",
-                title=dict(
-                    text=f"<b>{chart_header} — 6-Month Technical Trend</b>",
-                    x=0.01,
-                    y=0.96,
-                    font=dict(family="Plus Jakarta Sans", size=13, color="#FFFFFF"),
-                ),
                 xaxis=dict(
                     title=None,
                     showgrid=True,
@@ -627,13 +689,13 @@ with tab_main:
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
-                    y=1.03,
+                    y=1.02,
                     xanchor="right",
                     x=1,
                     font=dict(color="#DBE2FB", size=10),
                 ),
-                margin=dict(l=15, r=15, t=65, b=25),
-                height=450,
+                margin=dict(l=15, r=15, t=35, b=25),
+                height=430,
             )
 
             st.plotly_chart(fig, use_container_width=True)
@@ -736,47 +798,59 @@ with tab_main:
                 base_insight = st.session_state["ai_cache"][active_ticker]
 
             # 1. Scrollable Chat Feed (Chat flows downwards)
-            chat_container = st.container(height=390)
+            chat_container = st.container(height=360)
             with chat_container:
-                # Top Grounded Analysis
                 with st.chat_message("assistant", avatar="🧠"):
                     st.markdown(base_insight)
 
-                # Follow-up turns for this specific stock
                 stock_chat = st.session_state["chat_histories"][active_ticker]
                 for msg in stock_chat:
                     with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🧠"):
                         st.markdown(msg["content"])
 
-            # 2. Permanent Bottom Input Form (Always visible right under chat)
+            # Comfy Feature: Quick-Question Clickable Chips
+            st.markdown('<div class="mono-label" style="margin-top: 0.3rem;">QUICK ANALYSIS PROMPTS</div>', unsafe_allow_html=True)
+            q_cols = st.columns(2)
+            quick_prompts = [
+                ("💡 Explain Trend", f"Explain {active_ticker}'s technical trend based on MA7 vs MA30."),
+                ("🤖 Compare Models", f"Compare the Linear Regression vs Random Forest projections for {active_ticker}."),
+                ("⚠️ Risk Summary", f"What are the main risk factors and limitations of {active_ticker}'s prediction?"),
+                ("📊 What is R²?", f"What does the R² and RMSE score tell us about {active_ticker}'s predictability?"),
+            ]
+
+            quick_clicked_question = None
+            for idx, (chip_label, prompt_text) in enumerate(quick_prompts):
+                target_col = q_cols[idx % 2]
+                if target_col.button(chip_label, key=f"chip_{active_ticker}_{idx}", use_container_width=True):
+                    quick_clicked_question = prompt_text
+
+            # 2. Permanent Bottom Input Form (Always visible at the bottom)
             with st.form(key=f"bottom_chat_form_{active_ticker}", clear_on_submit=True):
                 c_input_col, c_btn_col = st.columns([4, 1])
                 with c_input_col:
                     user_q = st.text_input(
                         "Ask AI Advisor",
-                        placeholder=f"Ask about {active_ticker} (e.g. why is MA7 above MA30?)...",
+                        placeholder=f"Ask about {active_ticker} (or click a prompt above)...",
                         label_visibility="collapsed",
                     )
                 with c_btn_col:
                     send_clicked = st.form_submit_button("Send ➔", use_container_width=True)
 
-            if send_clicked and user_q:
-                # Append user question
-                st.session_state["chat_histories"][active_ticker].append({"role": "user", "content": user_q})
+            effective_question = quick_clicked_question or (user_q if send_clicked else None)
 
-                # Answer grounded within active ticker context
+            if effective_question:
+                st.session_state["chat_histories"][active_ticker].append({"role": "user", "content": effective_question})
+
                 with st.spinner(f"Generating grounded answer for {active_ticker}..."):
                     ai_reply = answer_followup(
                         context=rag_context,
                         chat_history=st.session_state["chat_histories"][active_ticker],
-                        question=user_q,
+                        question=effective_question,
                     )
 
-                # Append assistant reply and refresh
                 st.session_state["chat_histories"][active_ticker].append({"role": "assistant", "content": ai_reply})
                 st.rerun()
 
-            # Grounded Context Inspection Expander
             with st.expander("🔍 Inspect Retrieved Context (RAG Block)", expanded=False):
                 st.caption("Factual context passed to Groq for strict grounding:")
                 st.code(rag_context, language="text")
@@ -826,7 +900,7 @@ with tab_comparator:
                 paper_bgcolor="rgba(20, 27, 45, 0.7)",
                 plot_bgcolor="rgba(20, 27, 45, 0.7)",
                 title=dict(
-                    text="<b>6-Month Cumulative Growth (% from Baseline)</b>",
+                    text="<b>Cumulative Growth (% from Baseline)</b>",
                     x=0.01,
                     font=dict(family="Plus Jakarta Sans", size=14, color="#FFFFFF"),
                 ),
@@ -851,7 +925,7 @@ with tab_comparator:
                 table_records.append({
                     "Symbol": t_name,
                     "Current Price": f"{t_meta['current_price']:,.2f}",
-                    "6-Month Cumulative Return": f"{t_meta['total_return']:+.2f}%",
+                    "Cumulative Return": f"{t_meta['total_return']:+.2f}%",
                     "Annualized Volatility": f"{t_meta['volatility']:.2f}%",
                 })
             st.dataframe(pd.DataFrame(table_records), use_container_width=True, hide_index=True)

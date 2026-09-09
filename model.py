@@ -26,7 +26,7 @@ def get_stock_data(ticker: str, period: str = "6mo") -> pd.DataFrame:
 
     Args:
         ticker: Stock symbol (e.g., 'AAPL', 'MSFT', 'TCS.NS').
-        period: Historical lookback duration (default: '6mo').
+        period: Historical lookback duration ('1mo', '3mo', '6mo', '1y').
 
     Returns:
         pd.DataFrame: Historical OHLCV data with DatetimeIndex.
@@ -54,12 +54,15 @@ def get_stock_data(ticker: str, period: str = "6mo") -> pd.DataFrame:
     if "Close" not in df.columns:
         raise ValueError(f"Market data for '{clean_ticker}' does not contain required 'Close' prices.")
 
-    # Drop non-trading days or missing closing prices
-    df = df.dropna(subset=["Close"])
-    if len(df) < 35:
+    # Drop non-trading days or unfinalized empty bars (NaN in Close/Open)
+    df = df.dropna(subset=["Close", "Open", "High", "Low"])
+    
+    # Check minimum required samples
+    min_days = 15 if period == "1mo" else 25
+    if len(df) < min_days:
         raise ValueError(
             f"Insufficient historical data ({len(df)} trading days). "
-            "At least 35 trading days are required to calculate 30-day moving averages and lag features."
+            f"At least {min_days} trading days are required for moving averages and lag features."
         )
 
     return df
@@ -68,34 +71,20 @@ def get_stock_data(ticker: str, period: str = "6mo") -> pd.DataFrame:
 def add_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute 7-day and 30-day simple moving averages of the Close price.
-
-    Args:
-        df: Input DataFrame containing a 'Close' column.
-
-    Returns:
-        pd.DataFrame: A copy of df with 'MA7' and 'MA30' columns added.
+    For shorter timeframes (e.g. 1mo), MA30 gracefully uses available observations.
     """
     processed = df.copy()
     processed["MA7"] = processed["Close"].rolling(window=7).mean()
-    processed["MA30"] = processed["Close"].rolling(window=30).mean()
+    processed["MA30"] = processed["Close"].rolling(window=min(30, max(10, len(df)))).mean()
     return processed
 
 
 def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
     """
-    Compute key financial statistics, trend metrics, and sparkline points
-    from processed historical data.
-
-    Args:
-        df: DataFrame containing OHLC and moving average columns.
-        ticker: Ticker symbol string.
-
-    Returns:
-        Dict[str, Any]: Structured dictionary of factual market metrics.
+    Compute key financial statistics, trend metrics, and sparkline points.
     """
     clean_ticker = ticker.strip().upper()
 
-    # Currency determination
     if clean_ticker.endswith(".NS") or clean_ticker.endswith(".BO"):
         currency = "₹"
     elif clean_ticker.endswith(".L"):
@@ -115,7 +104,6 @@ def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
     period_high = float(df["High"].max())
     period_low = float(df["Low"].min())
 
-    # Latest MA readings
     ma7_val = float(df["MA7"].iloc[-1]) if "MA7" in df.columns and not np.isnan(df["MA7"].iloc[-1]) else current_price
     ma30_val = float(df["MA30"].iloc[-1]) if "MA30" in df.columns and not np.isnan(df["MA30"].iloc[-1]) else current_price
 
@@ -126,7 +114,13 @@ def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
     else:
         trend_status = "MA7 == MA30 (moving averages converging)"
 
-    # Recent 12 closes for sparkline
+    # Price Range Position (0 to 100%)
+    price_range = period_high - period_low
+    if price_range > 0:
+        range_position = min(100.0, max(0.0, ((current_price - period_low) / price_range) * 100))
+    else:
+        range_position = 50.0
+
     sparkline_points = [round(float(p), 2) for p in close_series.iloc[-12:].tolist()]
 
     return {
@@ -138,6 +132,7 @@ def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
         "period_change_pct": round(period_change_pct, 2),
         "period_high": round(period_high, 2),
         "period_low": round(period_low, 2),
+        "range_position": round(range_position, 1),
         "ma7": round(ma7_val, 2),
         "ma30": round(ma30_val, 2),
         "trend_status": trend_status,
@@ -149,27 +144,9 @@ def compute_market_stats(df: pd.DataFrame, ticker: str) -> Dict[str, Any]:
 def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """
     Construct autoregressive lag features for next-day price prediction.
-
-    Features:
-        Close_Lag1: Closing price 1 day prior to target date
-        Close_Lag2: Closing price 2 days prior to target date
-        Close_Lag3: Closing price 3 days prior to target date
-
-    Target:
-        Target: Closing price on target date
-
-    Latest Features:
-        The 3 most recent historical closes used to predict the future next-day close.
-
-    Returns:
-        Tuple containing (X, y, latest_features):
-        - X: Feature matrix DataFrame of historical lag values.
-        - y: Target Series of corresponding closing prices.
-        - latest_features: 1-row DataFrame containing the most recent 3 closes.
     """
     data = df.copy()
 
-    # Lag 1 = t-1, Lag 2 = t-2, Lag 3 = t-3 relative to the row's Close
     data["Close_Lag1"] = data["Close"].shift(1)
     data["Close_Lag2"] = data["Close"].shift(2)
     data["Close_Lag3"] = data["Close"].shift(3)
@@ -177,7 +154,6 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Data
 
     feature_cols = ["Close_Lag1", "Close_Lag2", "Close_Lag3"]
 
-    # Tomorrow's Lag1 = Today's Close, Lag2 = Yesterday's Close, Lag3 = 2-days-ago Close
     latest_closes = df["Close"].iloc[-3:].values
     latest_features = pd.DataFrame(
         [[latest_closes[2], latest_closes[1], latest_closes[0]]],
@@ -194,26 +170,19 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Data
 
 def train_and_predict_models(df: pd.DataFrame) -> Dict[str, float]:
     """
-    Train both Linear Regression and Random Forest Regressor models on historical
-    lag features, returning next-day predictions for each.
-
-    Args:
-        df: DataFrame containing historical 'Close' price data.
-
-    Returns:
-        Dict[str, float]: Predictions keyed by model name.
+    Train Linear Regression and Random Forest Regressor models on historical lag features.
     """
     X, y, latest_features = prepare_features(df)
 
-    if len(X) < 10:
+    if len(X) < 8:
         raise ValueError("Not enough clean historical samples to train regression models.")
 
-    # 1. Linear Regression Baseline
+    # 1. Linear Regression
     lr = LinearRegression()
     lr.fit(X, y)
     lr_pred = float(lr.predict(latest_features)[0])
 
-    # 2. Random Forest Regressor (Non-linear Ensemble)
+    # 2. Random Forest Regressor
     rf = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5)
     rf.fit(X, y)
     rf_pred = float(rf.predict(latest_features)[0])
@@ -225,32 +194,20 @@ def train_and_predict_models(df: pd.DataFrame) -> Dict[str, float]:
 
 
 def train_and_predict(df: pd.DataFrame) -> float:
-    """Legacy wrapper for single Linear Regression prediction."""
     predictions = train_and_predict_models(df)
     return predictions["Linear Regression"]
 
 
 def evaluate_models(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, Dict[str, float]]:
     """
-    Evaluate both Linear Regression and Random Forest models using a
-    chronological train/test split.
-
-    Important:
-        Time-series data must NOT be randomly shuffled to prevent lookahead bias.
-
-    Args:
-        df: DataFrame containing historical 'Close' price data.
-        test_size: Proportion of recent observations reserved for testing (default: 0.2).
-
-    Returns:
-        Dict[str, Dict[str, float]]: Model names mapped to dict of 'rmse' and 'r2'.
+    Evaluate models using a chronological train/test split.
     """
     X, y, _ = prepare_features(df)
 
     total_samples = len(X)
     split_index = int(total_samples * (1 - test_size))
 
-    if split_index < 5 or (total_samples - split_index) < 5:
+    if split_index < 4 or (total_samples - split_index) < 4:
         raise ValueError("Insufficient data points for a meaningful train/test split.")
 
     X_train, X_test = X.iloc[:split_index], X.iloc[split_index:]
@@ -284,24 +241,13 @@ def evaluate_models(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, Dict[
 
 
 def evaluate_model(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, float]:
-    """Legacy wrapper returning evaluation metrics for Linear Regression."""
     evals = evaluate_models(df, test_size=test_size)
     return evals["Linear Regression"]
 
 
 def compare_stocks(tickers: List[str], period: str = "6mo") -> Tuple[pd.DataFrame, Dict[str, Dict[str, float]]]:
     """
-    Fetch and normalize closing prices for multiple stocks to compare cumulative
-    percentage returns over time.
-
-    Args:
-        tickers: List of ticker symbols (e.g. ['AAPL', 'MSFT', 'GOOGL']).
-        period: Time window to fetch.
-
-    Returns:
-        Tuple:
-        - pd.DataFrame of cumulative percentage changes indexed by Date.
-        - Dict of summary metrics per ticker (Total Return %, Volatility %).
+    Fetch and normalize closing prices for multiple stocks to compare cumulative percentage returns.
     """
     returns_df = pd.DataFrame()
     stats = {}
