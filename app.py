@@ -1,13 +1,13 @@
 """
-app.py — StockPulse: Market Intelligence & Grounded AI Analytics Workspace.
+app.py — StockPulse: Celestial Financial Intelligence Workspace.
 
-Key Enhancements:
-- Themed Dynamic Ambient Backgrounds (🇮🇳 Dalal Street/India, 🇺🇸 Wall Street/US, 🌍 Global).
-- Navigation History Stack with prominent "⬅ Back" button.
-- Modern Bottom-Pinned AI Chat with downward message stream and automatic context re-alignment upon ticker switch.
-- Robust Text Selection Cursors and Pointer styling.
-- Responsive Bento Metric Cards with no-wrap typography preventing digit-breaking.
-- Plotly Chart Layout Optimization eliminating title-legend overlap.
+Design System: Powered by Google Stitch ("The Celestial Financial Architect").
+Tokens:
+- Background Canvas: #0C1324 (Deep Space Navy)
+- Surface Containers: #141B2D (Base Cards), #18233C (Elevated), #232A3C (High)
+- Accents: #FFB800 (Solar Gold), #38EF7D (Emerald Positive), #FF6B6B (Negative)
+- Typography: Plus Jakarta Sans (Headlines), Inter (Body), JetBrains Mono (Financial Data)
+- Layout: Bento Grid with Bottom-Pinned Conversational AI Chat & History Navigation.
 """
 
 from typing import List, Dict, Any
@@ -41,14 +41,14 @@ from ai_advisor import (
 # 1. Page Configuration
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="StockPulse — Market Intelligence Workspace",
+    page_title="StockPulse — Celestial Financial Workspace",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # -----------------------------------------------------------------------------
-# 2. Session State Initialization
+# 2. Session State Management
 # -----------------------------------------------------------------------------
 if "selected_ticker" not in st.session_state:
     st.session_state["selected_ticker"] = "RELIANCE.NS"
@@ -70,10 +70,9 @@ if "user_groq_key" not in st.session_state:
 
 
 def navigate_to_ticker(new_ticker: str):
-    """Navigate to a new ticker while recording the previous one in history."""
+    """Navigate to a new ticker and push the previous ticker to history."""
     clean = new_ticker.strip().upper()
     if clean and clean != st.session_state["selected_ticker"]:
-        # Push current ticker to history stack (max 15 items)
         cur = st.session_state["selected_ticker"]
         if not st.session_state["history"] or st.session_state["history"][-1] != cur:
             st.session_state["history"].append(cur)
@@ -84,7 +83,7 @@ def navigate_to_ticker(new_ticker: str):
 
 
 def go_back():
-    """Navigate back to the previous ticker in the history stack."""
+    """Pop previous ticker from history and return."""
     if st.session_state["history"]:
         prev = st.session_state["history"].pop()
         st.session_state["selected_ticker"] = prev
@@ -96,55 +95,55 @@ active_region = get_ticker_region(active_ticker)
 
 
 # -----------------------------------------------------------------------------
-# 3. Dynamic Themed Background & Precision Typography CSS
+# 3. Stitch Design System Styles: The Celestial Architect
 # -----------------------------------------------------------------------------
 if active_region == "INDIA":
     theme_gradient = (
-        "radial-gradient(circle at 10% 15%, rgba(255, 153, 51, 0.08) 0%, transparent 45%), "
-        "radial-gradient(circle at 90% 85%, rgba(18, 136, 7, 0.08) 0%, transparent 45%), "
-        "linear-gradient(180deg, #07090E 0%, #0A0F18 100%)"
+        "radial-gradient(circle at 10% 15%, rgba(255, 184, 0, 0.09) 0%, transparent 45%), "
+        "radial-gradient(circle at 90% 85%, rgba(56, 239, 125, 0.08) 0%, transparent 45%), "
+        "linear-gradient(180deg, #070E1F 0%, #0C1324 100%)"
     )
-    theme_accent = "#FF9933"
+    theme_accent = "#FFB800"
     theme_tag = "🇮🇳 DALAL STREET • NATIONAL STOCK EXCHANGE (NSE) REGIME"
 elif active_region == "US":
     theme_gradient = (
-        "radial-gradient(circle at 15% 15%, rgba(41, 121, 255, 0.09) 0%, transparent 45%), "
-        "radial-gradient(circle at 85% 85%, rgba(0, 230, 118, 0.07) 0%, transparent 45%), "
-        "linear-gradient(180deg, #07090E 0%, #090E18 100%)"
+        "radial-gradient(circle at 15% 15%, rgba(41, 121, 255, 0.1) 0%, transparent 45%), "
+        "radial-gradient(circle at 85% 85%, rgba(255, 184, 0, 0.07) 0%, transparent 45%), "
+        "linear-gradient(180deg, #070E1F 0%, #0C1324 100%)"
     )
-    theme_accent = "#2979FF"
+    theme_accent = "#FFDCA1"
     theme_tag = "🇺🇸 WALL STREET & SILICON VALLEY • US EQUITY REGIME"
 else:
     theme_gradient = (
-        "radial-gradient(circle at 50% 10%, rgba(213, 0, 249, 0.07) 0%, transparent 50%), "
+        "radial-gradient(circle at 50% 10%, rgba(128, 250, 133, 0.07) 0%, transparent 50%), "
         "radial-gradient(circle at 50% 90%, rgba(0, 176, 255, 0.07) 0%, transparent 50%), "
-        "linear-gradient(180deg, #07090E 0%, #0B0E17 100%)"
+        "linear-gradient(180deg, #070E1F 0%, #0C1324 100%)"
     )
-    theme_accent = "#00B0FF"
-    theme_tag = "🌍 GLOBAL INDICES & MULTI-EXCHANGE BENCHMARK REGIME"
+    theme_accent = "#80FA85"
+    theme_tag = "🌍 GLOBAL MARKET INDICES • CROSS-BORDER BENCHMARK REGIME"
 
 st.markdown(
     f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     html, body, [class*="css"] {{
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Inter', sans-serif;
     }}
 
     .stApp {{
         background: {theme_gradient} !important;
         background-attachment: fixed !important;
-        color: #E6EDF3;
+        color: #DBE2FB;
     }}
 
-    /* Global Text Selection & Cursor Behaviors */
+    /* Text Selection & Cursors */
     ::selection {{
         background: {theme_accent} !important;
-        color: #000000 !important;
+        color: #0C1324 !important;
     }}
 
-    p, span, h1, h2, h3, h4, .selectable-text, .insight-body, .stMarkdown {{
+    h1, h2, h3, h4, p, span, .stMarkdown, .insight-body {{
         cursor: text;
     }}
 
@@ -152,7 +151,7 @@ st.markdown(
         cursor: pointer !important;
     }}
 
-    /* Header Container */
+    /* Stitch Command Header */
     .header-container {{
         display: flex;
         justify-content: space-between;
@@ -162,9 +161,9 @@ st.markdown(
         margin-bottom: 0.8rem;
     }}
     .brand-title {{
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 1.35rem;
-        font-weight: 700;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 800;
         letter-spacing: -0.5px;
         color: #FFFFFF;
         display: flex;
@@ -172,19 +171,19 @@ st.markdown(
         gap: 8px;
     }}
     .theme-banner {{
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 0.7rem;
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(255, 184, 0, 0.08);
         color: {theme_accent};
         border: 1px solid {theme_accent}44;
         padding: 3px 8px;
-        border-radius: 4px;
+        border-radius: 6px;
         letter-spacing: 0.5px;
     }}
     .status-indicator {{
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 0.75rem;
-        color: #00E676;
+        color: #38EF7D;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -192,9 +191,9 @@ st.markdown(
     .pulse-dot {{
         width: 8px;
         height: 8px;
-        background-color: #00E676;
+        background-color: #38EF7D;
         border-radius: 50%;
-        box-shadow: 0 0 8px #00E676;
+        box-shadow: 0 0 8px #38EF7D;
         animation: pulse 2s infinite ease-in-out;
     }}
     @keyframes pulse {{
@@ -203,23 +202,24 @@ st.markdown(
         100% {{ transform: scale(0.95); opacity: 0.7; }}
     }}
 
-    /* Bento Metric Cards (No-wrap, Compact) */
+    /* Stitch Bento Metric Cards (No Wrapping, Tactile) */
     .bento-card {{
-        background: #0D111A;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #141B2D;
+        border: 1px solid rgba(255, 255, 255, 0.07);
         border-radius: 8px;
-        padding: 0.85rem 0.8rem;
+        padding: 0.85rem 0.85rem;
         margin-bottom: 0.8rem;
-        transition: border 0.2s ease;
         overflow: hidden;
+        transition: transform 0.15s ease, border-color 0.15s ease;
     }}
     .bento-card:hover {{
         border-color: {theme_accent}88;
+        transform: translateY(-1px);
     }}
     .mono-label {{
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 0.68rem;
-        color: #8B949E;
+        color: #9E8F78;
         text-transform: uppercase;
         letter-spacing: 0.6px;
         margin-bottom: 0.2rem;
@@ -228,7 +228,7 @@ st.markdown(
         text-overflow: ellipsis;
     }}
     .metric-val {{
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 1.25rem;
         font-weight: 700;
         color: #FFFFFF;
@@ -236,44 +236,29 @@ st.markdown(
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        line-height: 1.2;
+        line-height: 1.25;
     }}
     .metric-delta {{
-        font-family: 'IBM Plex Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 0.78rem;
         font-weight: 500;
-        margin-top: 0.2rem;
+        margin-top: 0.25rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }}
-    .delta-pos {{ color: #00E676; }}
-    .delta-neg {{ color: #FF5252; }}
+    .delta-pos {{ color: #38EF7D; }}
+    .delta-neg {{ color: #FF6B6B; }}
 
-    /* AI Advisor Scrollable Feed */
-    .chat-scroll-container {{
-        max-height: 480px;
-        overflow-y: auto;
-        padding-right: 6px;
-        margin-bottom: 0.8rem;
-    }}
-    .chat-bubble-ai {{
-        background: #0B0F19;
-        border-left: 3px solid {theme_accent};
-        border-radius: 6px;
-        padding: 0.75rem 0.9rem;
-        margin-bottom: 0.75rem;
-        font-size: 0.88rem;
-        line-height: 1.45;
-    }}
-    .chat-bubble-user {{
-        background: #141A26;
-        border-right: 3px solid #00E676;
-        border-radius: 6px;
-        padding: 0.65rem 0.85rem;
-        margin-bottom: 0.75rem;
-        font-size: 0.85rem;
-        text-align: right;
+    /* AI Advisor Chat Container */
+    .ai-box-card {{
+        background: #141B2D;
+        border: 1px solid {theme_accent}44;
+        border-radius: 8px;
+        padding: 1rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }}
     </style>
     """,
@@ -282,7 +267,7 @@ st.markdown(
 
 
 # -----------------------------------------------------------------------------
-# 4. Cached Data Ingestion
+# 4. Cached Data Pipelines
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_cached_stock_data(ticker_symbol: str) -> pd.DataFrame:
@@ -295,11 +280,11 @@ def get_cached_comparison(tickers: List[str]):
 
 
 # -----------------------------------------------------------------------------
-# 5. Sidebar: Watchlist, Back Button, & Controls
+# 5. Sidebar: Watchlist & Settings
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.markdown('<div class="brand-title">📈 StockPulse</div>', unsafe_allow_html=True)
-    st.caption("AI-Powered Financial Analytics Workspace")
+    st.caption("Celestial Financial Intelligence Workspace")
 
     # History Navigation Back Button
     if st.session_state["history"]:
@@ -309,7 +294,7 @@ with st.sidebar:
 
     st.divider()
 
-    # Watchlist
+    # Active Watchlist
     st.markdown('<div class="mono-label">★ ACTIVE WATCHLIST</div>', unsafe_allow_html=True)
     wl_cols = st.columns(2)
     for idx, wl_ticker in enumerate(st.session_state["watchlist"]):
@@ -321,7 +306,7 @@ with st.sidebar:
 
     st.divider()
 
-    # Chart Mode
+    # Chart Style
     st.markdown('<div class="mono-label">VISUALIZATION MODE</div>', unsafe_allow_html=True)
     chart_mode = st.radio(
         "Chart Style",
@@ -331,20 +316,20 @@ with st.sidebar:
 
     st.divider()
 
-    # Groq Config
+    # Optional Groq Config
     with st.expander("🔑 AI Advisor API Config", expanded=False):
-        st.caption("Configured locally in `.streamlit/secrets.toml`. Enter an override key below if desired:")
+        st.caption("Configured in `.streamlit/secrets.toml`. Enter override key if needed:")
         override_key = st.text_input("Override Groq Key:", type="password", placeholder="gsk_...")
         if override_key and override_key != st.session_state["user_groq_key"]:
             st.session_state["user_groq_key"] = override_key
             st.session_state["ai_cache"].clear()
             st.rerun()
 
-    st.caption("StockPulse Pro • Built with Streamlit, pandas, scikit-learn & Groq")
+    st.caption("Google Stitch Design System • Groq AI • scikit-learn")
 
 
 # -----------------------------------------------------------------------------
-# 6. Top Command Header
+# 6. Top Command Header & Discovery Area
 # -----------------------------------------------------------------------------
 st.markdown(
     f"""
@@ -364,7 +349,6 @@ st.markdown(
 nav_col1, nav_col2, nav_col3 = st.columns([1.2, 4.5, 1.3])
 
 with nav_col1:
-    # Top Back Button
     if st.session_state["history"]:
         prev_sym = st.session_state["history"][-1]
         if st.button(f"⬅ Back ({prev_sym})", use_container_width=True):
@@ -464,9 +448,9 @@ with tab_main:
         rag_context = build_context(active_ticker, stats, ml_predictions, ml_evals)
 
         # ---------------------------------------------------------------------
-        # Bento Grid: Left Column (65%) | Right Column (35%)
+        # Bento Grid: Left Column (63%) | Right Column (37%)
         # ---------------------------------------------------------------------
-        left_col, right_col = st.columns([65, 35], gap="medium")
+        left_col, right_col = st.columns([63, 37], gap="medium")
 
         with left_col:
             # Row 1: 4 Metric Cards with No-Wrap Numeric Formatting
@@ -494,7 +478,7 @@ with tab_main:
                         <div class="metric-val {'delta-pos' if stats['period_change_pct'] >= 0 else 'delta-neg'}">
                             {stats['period_change_pct']:+.2f}%
                         </div>
-                        <div class="metric-delta" style="color: #8B949E;">{stats['data_points']} Trading Days</div>
+                        <div class="metric-delta" style="color: #9E8F78;">{stats['data_points']} Trading Days</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -506,7 +490,7 @@ with tab_main:
                     <div class="bento-card">
                         <div class="mono-label">6-MONTH HIGH</div>
                         <div class="metric-val">{curr}{stats['period_high']:,.2f}</div>
-                        <div class="metric-delta" style="color: #8B949E;">Peak Observed</div>
+                        <div class="metric-delta" style="color: #9E8F78;">Peak Observed</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -518,13 +502,13 @@ with tab_main:
                     <div class="bento-card">
                         <div class="mono-label">6-MONTH LOW</div>
                         <div class="metric-val">{curr}{stats['period_low']:,.2f}</div>
-                        <div class="metric-delta" style="color: #8B949E;">Trough Observed</div>
+                        <div class="metric-delta" style="color: #9E8F78;">Trough Observed</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
-            # Row 2: Interactive Plotly Chart (Clean Title & Non-Overlapping Legend)
+            # Row 2: Interactive Plotly Chart
             chart_header = get_ticker_display_name(active_ticker)
             fig = go.Figure()
 
@@ -537,8 +521,8 @@ with tab_main:
                         low=df_processed["Low"],
                         close=df_processed["Close"],
                         name="OHLC Price",
-                        increasing_line_color="#00E676",
-                        decreasing_line_color="#FF5252",
+                        increasing_line_color="#38EF7D",
+                        decreasing_line_color="#FF6B6B",
                     )
                 )
             else:
@@ -548,7 +532,7 @@ with tab_main:
                         y=df_processed["Close"],
                         mode="lines",
                         name="Close Price",
-                        line=dict(color="#2979FF", width=2.2),
+                        line=dict(color="#FFB800", width=2.2),
                         hovertemplate=f"<b>Date:</b> %{{x|%Y-%m-%d}}<br><b>Close:</b> {curr}%{{y:,.2f}}<extra></extra>",
                     )
                 )
@@ -559,7 +543,7 @@ with tab_main:
                     y=df_processed["MA7"],
                     mode="lines",
                     name="7-Day MA",
-                    line=dict(color="#FF9933", width=1.6, dash="dash"),
+                    line=dict(color="#FFDCA1", width=1.6, dash="dash"),
                     hovertemplate=f"<b>MA7:</b> {curr}%{{y:,.2f}}<extra></extra>",
                 )
             )
@@ -569,32 +553,32 @@ with tab_main:
                     y=df_processed["MA30"],
                     mode="lines",
                     name="30-Day MA",
-                    line=dict(color="#00E676", width=1.6, dash="dot"),
+                    line=dict(color="#38EF7D", width=1.6, dash="dot"),
                     hovertemplate=f"<b>MA30:</b> {curr}%{{y:,.2f}}<extra></extra>",
                 )
             )
 
             fig.update_layout(
-                paper_bgcolor="rgba(10, 13, 21, 0.7)",
-                plot_bgcolor="rgba(10, 13, 21, 0.7)",
+                paper_bgcolor="rgba(20, 27, 45, 0.7)",
+                plot_bgcolor="rgba(20, 27, 45, 0.7)",
                 title=dict(
                     text=f"<b>{chart_header} — 6-Month Technical Trend</b>",
                     x=0.01,
                     y=0.96,
-                    font=dict(family="IBM Plex Mono", size=13, color="#FFFFFF"),
+                    font=dict(family="Plus Jakarta Sans", size=13, color="#FFFFFF"),
                 ),
                 xaxis=dict(
                     title=None,
                     showgrid=True,
                     gridcolor="rgba(255, 255, 255, 0.05)",
                     rangeslider=dict(visible=False),
-                    tickfont=dict(color="#8B949E", size=10),
+                    tickfont=dict(color="#9E8F78", size=10),
                 ),
                 yaxis=dict(
-                    title=dict(text=f"Price ({curr})", font=dict(color="#8B949E", size=11)),
+                    title=dict(text=f"Price ({curr})", font=dict(color="#9E8F78", size=11)),
                     showgrid=True,
                     gridcolor="rgba(255, 255, 255, 0.05)",
-                    tickfont=dict(color="#8B949E", size=10),
+                    tickfont=dict(color="#9E8F78", size=10),
                 ),
                 hovermode="x unified",
                 legend=dict(
@@ -603,7 +587,7 @@ with tab_main:
                     y=1.03,
                     xanchor="right",
                     x=1,
-                    font=dict(color="#E6EDF3", size=10),
+                    font=dict(color="#DBE2FB", size=10),
                 ),
                 margin=dict(l=15, r=15, t=65, b=25),
                 height=450,
@@ -613,9 +597,9 @@ with tab_main:
 
             # Technical Momentum Note
             ma_msg = (
-                "🟢 **Momentum Note:** Short-term 7-day average is tracking above the 30-day baseline."
+                "🟢 **Momentum Note:** Short-term 7-day moving average is tracking above the 30-day baseline."
                 if stats["ma7"] > stats["ma30"]
-                else "🔴 **Momentum Note:** Short-term 7-day average is tracking below the 30-day baseline."
+                else "🔴 **Momentum Note:** Short-term 7-day moving average is tracking below the 30-day baseline."
             )
             st.caption(ma_msg)
 
@@ -638,7 +622,7 @@ with tab_main:
                         <div class="metric-delta {'delta-pos' if lr_d >= 0 else 'delta-neg'}">
                             {lr_d:+,.2f} ({lr_d_pct:+.2f}%)
                         </div>
-                        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #8B949E; font-family: 'IBM Plex Mono', monospace;">
+                        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #9E8F78; font-family: 'JetBrains Mono', monospace;">
                             Test RMSE: {curr}{lr_rmse:.2f} &nbsp;|&nbsp; R²: {lr_r2:.4f}
                         </div>
                     </div>
@@ -661,7 +645,7 @@ with tab_main:
                         <div class="metric-delta {'delta-pos' if rf_d >= 0 else 'delta-neg'}">
                             {rf_d:+,.2f} ({rf_d_pct:+.2f}%)
                         </div>
-                        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #8B949E; font-family: 'IBM Plex Mono', monospace;">
+                        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #9E8F78; font-family: 'JetBrains Mono', monospace;">
                             Test RMSE: {curr}{rf_rmse:.2f} &nbsp;|&nbsp; R²: {rf_r2:.4f}
                         </div>
                     </div>
@@ -679,16 +663,16 @@ with tab_main:
                 )
 
         # ---------------------------------------------------------------------
-        # Right Column: Modern Conversational AI Advisor (Bottom-Pinned Input)
+        # Right Column: Conversational AI Advisor with Pinned Bottom Input
         # ---------------------------------------------------------------------
         with right_col:
             st.markdown(
                 f"""
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.4rem; margin-bottom: 0.8rem;">
-                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 600; color: {theme_accent};">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
+                    <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.95rem; font-weight: 700; color: {theme_accent};">
                         🧠 AI ADVISOR
                     </span>
-                    <span style="font-size: 0.68rem; color: #00E676; font-family: 'IBM Plex Mono', monospace;">
+                    <span style="font-size: 0.68rem; color: #38EF7D; font-family: 'JetBrains Mono', monospace;">
                         ● GROUNDED RAG-LITE
                     </span>
                 </div>
@@ -696,7 +680,7 @@ with tab_main:
                 unsafe_allow_html=True,
             )
 
-            # Ensure ticker-specific chat history exists
+            # Auto-align chat history with active ticker
             if active_ticker not in st.session_state["chat_histories"]:
                 st.session_state["chat_histories"][active_ticker] = []
 
@@ -708,48 +692,53 @@ with tab_main:
             else:
                 base_insight = st.session_state["ai_cache"][active_ticker]
 
-            # Scrollable Chat Container (Chat flows downwards)
-            chat_container = st.container(height=490)
-
+            # 1. Scrollable Chat Feed (Chat flows downwards)
+            chat_container = st.container(height=390)
             with chat_container:
-                # 1. Primary Grounded Analysis
+                # Top Grounded Analysis
                 with st.chat_message("assistant", avatar="🧠"):
                     st.markdown(base_insight)
 
-                # 2. Render all historical follow-up Q&A turns for this stock
-                current_chat = st.session_state["chat_histories"][active_ticker]
-                for msg in current_chat:
+                # Follow-up turns for this specific stock
+                stock_chat = st.session_state["chat_histories"][active_ticker]
+                for msg in stock_chat:
                     with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🧠"):
                         st.markdown(msg["content"])
 
-            # 3. Bottom Chat Input (Always at bottom)
-            user_question = st.chat_input(
-                placeholder=f"Ask AI Advisor about {active_ticker}...",
-                key=f"chat_in_{active_ticker}",
-            )
+            # 2. Permanent Bottom Input Form (Always visible right under chat)
+            with st.form(key=f"bottom_chat_form_{active_ticker}", clear_on_submit=True):
+                c_input_col, c_btn_col = st.columns([4, 1])
+                with c_input_col:
+                    user_q = st.text_input(
+                        "Ask AI Advisor",
+                        placeholder=f"Ask about {active_ticker} (e.g. why is MA7 above MA30?)...",
+                        label_visibility="collapsed",
+                    )
+                with c_btn_col:
+                    send_clicked = st.form_submit_button("Send ➔", use_container_width=True)
 
-            if user_question:
-                # Add user message to history
-                current_chat.append({"role": "user", "content": user_question})
+            if send_clicked and user_q:
+                # Append user question
+                st.session_state["chat_histories"][active_ticker].append({"role": "user", "content": user_q})
 
-                # Generate grounded response
+                # Answer grounded within active ticker context
                 with st.spinner(f"Generating grounded answer for {active_ticker}..."):
-                    answer = answer_followup(
+                    ai_reply = answer_followup(
                         context=rag_context,
-                        chat_history=current_chat,
-                        question=user_question,
+                        chat_history=st.session_state["chat_histories"][active_ticker],
+                        question=user_q,
                     )
 
-                # Add assistant response to history
-                current_chat.append({"role": "assistant", "content": answer})
+                # Append assistant reply and refresh
+                st.session_state["chat_histories"][active_ticker].append({"role": "assistant", "content": ai_reply})
                 st.rerun()
 
-            # Context Inspector Expander
+            # Grounded Context Inspection Expander
             with st.expander("🔍 Inspect Retrieved Context (RAG Block)", expanded=False):
                 st.caption("Factual context passed to Groq for strict grounding:")
                 st.code(rag_context, language="text")
 
-            st.caption("⚠️ **Educational Project:** Not financial advice. Past performance is non-guaranteed.")
+            st.caption("⚠️ **Educational Project:** Not financial advice. Past performance does not guarantee future results.")
 
 
 # =============================================================================
@@ -758,12 +747,6 @@ with tab_main:
 with tab_comparator:
     st.markdown('<div class="mono-label">CROSS-ASSET PERFORMANCE BENCHMARK</div>', unsafe_allow_html=True)
     st.caption("Normalize and benchmark cumulative 6-month percentage returns across multiple equities simultaneously.")
-
-    # Return to Workspace button
-    if st.button("⬅ Return to Single Stock Workspace"):
-        # Select active tab 0 via rerun or state
-        st.session_state["selected_ticker"] = active_ticker
-        st.rerun()
 
     comp_selection = st.multiselect(
         "Select Assets to Benchmark:",
@@ -782,7 +765,7 @@ with tab_comparator:
 
         if not ret_df.empty:
             c_fig = go.Figure()
-            palette = ["#2979FF", "#00E676", "#FF9933", "#D500F9", "#00B0FF", "#FFD600"]
+            palette = ["#FFB800", "#38EF7D", "#2979FF", "#D500F9", "#00B0FF", "#FFD600"]
 
             for i, asset in enumerate(ret_df.columns):
                 c_fig.add_trace(
@@ -797,22 +780,22 @@ with tab_comparator:
                 )
 
             c_fig.update_layout(
-                paper_bgcolor="rgba(10, 13, 21, 0.7)",
-                plot_bgcolor="rgba(10, 13, 21, 0.7)",
+                paper_bgcolor="rgba(20, 27, 45, 0.7)",
+                plot_bgcolor="rgba(20, 27, 45, 0.7)",
                 title=dict(
                     text="<b>6-Month Cumulative Growth (% from Baseline)</b>",
                     x=0.01,
-                    font=dict(family="IBM Plex Mono", size=14, color="#FFFFFF"),
+                    font=dict(family="Plus Jakarta Sans", size=14, color="#FFFFFF"),
                 ),
-                xaxis=dict(showgrid=True, gridcolor="rgba(255, 255, 255, 0.05)", tickfont=dict(color="#8B949E", size=10)),
+                xaxis=dict(showgrid=True, gridcolor="rgba(255, 255, 255, 0.05)", tickfont=dict(color="#9E8F78", size=10)),
                 yaxis=dict(
-                    title=dict(text="Cumulative Return (%)", font=dict(color="#8B949E", size=11)),
+                    title=dict(text="Cumulative Return (%)", font=dict(color="#9E8F78", size=11)),
                     showgrid=True,
                     gridcolor="rgba(255, 255, 255, 0.05)",
-                    tickfont=dict(color="#8B949E", size=10),
+                    tickfont=dict(color="#9E8F78", size=10),
                 ),
                 hovermode="x unified",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#E6EDF3", size=11)),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#DBE2FB", size=11)),
                 margin=dict(l=15, r=15, t=50, b=25),
                 height=450,
             )
