@@ -143,12 +143,55 @@ st.markdown(
         color: #0C1324 !important;
     }}
 
-    h1, h2, h3, h4, p, span, .stMarkdown, .insight-body {{
+    /* 1. BUTTONS & INTERACTIVE ELEMENTS: GUARANTEED POINTER CURSOR */
+    button,
+    button *,
+    [role="button"],
+    [role="button"] *,
+    .stButton,
+    .stButton *,
+    .stButton > button,
+    .stButton > button *,
+    .stTabs [role="tab"],
+    .stTabs [role="tab"] *,
+    .stRadio label,
+    .stRadio label * {{
+        cursor: pointer !important;
+    }}
+
+    /* 2. TEXT SELECTION CURSOR (EXCLUDING BUTTONS) */
+    .stMarkdown:not(.stButton *):not(button *) p,
+    .stMarkdown:not(.stButton *):not(button *) span,
+    h1, h2, h3, h4, .insight-body, .mono-label, .metric-val {{
         cursor: text;
     }}
 
-    button, [role="button"], .stButton > button, input, select, .stRadio label {{
-        cursor: pointer !important;
+    /* 3. TACTILE LIQUID "FILLING-UP" BUTTON HOVER EFFECT */
+    .stButton > button {{
+        position: relative !important;
+        background-color: #141B2D !important;
+        color: #DBE2FB !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+        transition: color 0.25s ease, border-color 0.25s ease, transform 0.2s ease, box-shadow 0.3s ease, background-size 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background-image: linear-gradient(to top, {theme_accent}44 0%, {theme_accent}77 100%) !important;
+        background-repeat: no-repeat !important;
+        background-size: 100% 0% !important;
+        background-position: bottom !important;
+        z-index: 1 !important;
+    }}
+
+    .stButton > button:hover {{
+        background-size: 100% 100% !important;
+        border-color: {theme_accent} !important;
+        color: #FFFFFF !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 18px {theme_accent}33 !important;
+    }}
+
+    .stButton > button:active {{
+        transform: translateY(0px) !important;
     }}
 
     /* Stitch Command Header */
