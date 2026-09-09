@@ -55,8 +55,8 @@ class TestAIAdvisor(unittest.TestCase):
             self.sample_preds,
             self.sample_evals,
         )
-        # Without providing an API key, it should safely return deterministic fallback
-        insight = get_ai_insight(context, custom_api_key=None)
+        # Passing custom_api_key="" explicitly invokes the deterministic fallback mode
+        insight = get_ai_insight(context, custom_api_key="")
         self.assertIsInstance(insight, str)
         self.assertIn("Trend Assessment", insight)
         self.assertIn("Educational analysis only", insight)
@@ -68,7 +68,7 @@ class TestAIAdvisor(unittest.TestCase):
             self.sample_preds,
             self.sample_evals,
         )
-        ans = answer_followup(context, [], "Why is MA7 above MA30?", custom_api_key=None)
+        ans = answer_followup(context, [], "Why is MA7 above MA30?", custom_api_key="")
         self.assertIn("Grounded Mode", ans)
 
 

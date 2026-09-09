@@ -144,7 +144,7 @@ def get_ai_insight(context: str, custom_api_key: Optional[str] = None) -> str:
     Generate an AI insight from the retrieved context using Groq,
     falling back gracefully if unavailable.
     """
-    api_key = custom_api_key or resolve_api_key()
+    api_key = custom_api_key if custom_api_key is not None else resolve_api_key()
 
     if not GROQ_AVAILABLE or not api_key:
         return _generate_fallback_insight(context)
@@ -186,7 +186,7 @@ def answer_followup(
     """
     Answer a follow-up question strictly grounded within the supplied context.
     """
-    api_key = custom_api_key or resolve_api_key()
+    api_key = custom_api_key if custom_api_key is not None else resolve_api_key()
 
     if not GROQ_AVAILABLE or not api_key:
         return (
