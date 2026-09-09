@@ -1,8 +1,8 @@
 # 📈 StockPulse
 
-> **Stock Trend Visualizer & Machine Learning Next-Day Price Predictor**
+> **Stock Trend Visualizer & Multi-Model Machine Learning Next-Day Price Predictor**
 
-StockPulse is an interactive financial analytics and educational machine learning dashboard built with **Streamlit**, **Python**, **Plotly**, and **scikit-learn**. It enables users to analyze ~6 months of historical daily stock data for both US and Indian equities, track key technical moving averages, and experiment with a baseline autoregressive linear regression model for next-day price prediction.
+StockPulse is an interactive financial analytics and machine learning dashboard built with **Streamlit**, **Python**, **Plotly**, and **scikit-learn**. It enables users to analyze historical stock data for US and Indian equities, visualize price action via Line and Candlestick (OHLC) charts, compare cumulative asset growth, and benchmark **Linear Regression** vs. **Random Forest Regressor** models for next-day price forecasting.
 
 ---
 
@@ -15,12 +15,15 @@ StockPulse is an interactive financial analytics and educational machine learnin
 ## ✨ Features
 
 * **Global & Indian Market Support:** Query any public equity symbol from Yahoo Finance (e.g., `AAPL`, `MSFT`, `GOOGL`, `TSLA`, `TCS.NS`, `RELIANCE.NS`, `INFY.NS`).
-* **Key Financial Metrics:** Instant display of Current Close, 6-Month Period Change %, 6-Month High, and 6-Month Low.
-* **Interactive Charting:** Dynamic Plotly visualization of Closing Price alongside **7-Day (MA7)** and **30-Day (MA30)** Moving Averages with unified hover tooltips and responsive zoom.
-* **Autoregressive ML Prediction:** Supervised Linear Regression model predicting the next trading day's closing price based on 3-day historical price lags ($t-1, t-2, t-3$).
-* **Chronological Model Diagnostics:** Transparent evaluation reporting **Root Mean Squared Error (RMSE)** and **$R^2$ Score** on an un-shuffled chronological test split (preventing future lookahead leakage).
-* **Defensive Engineering & Caching:** Streamlit caching (`@st.cache_data`) for network optimization, with graceful handling of invalid tickers and network drops.
-* **Educational Disclaimer:** Clear banner emphasizing experimental educational use—not financial advice.
+* **Flexible Visualizations:** Toggle between standard **Line Charts** with 7-day and 30-day Moving Averages and high-resolution **OHLC Candlestick Charts**.
+* **Multi-Model ML Benchmarking:** Direct side-by-side comparison between:
+  - **Linear Regression:** Fast parametric baseline model.
+  - **Random Forest Regressor:** Non-linear ensemble model of 100 decision trees.
+* **Chronological Model Diagnostics:** Rigorous evaluation reporting **Root Mean Squared Error (RMSE)** and **$R^2$ Score** on an un-shuffled chronological test split (preventing lookahead data leakage).
+* **Multi-Stock Comparator:** Compare cumulative 6-month percentage growth and annualized volatility across multiple assets simultaneously.
+* **Key Financial Metrics:** Instant calculation of Current Close, 6-Month Period % Change, 6-Month High, and 6-Month Low.
+* **Defensive Engineering & Caching:** Streamlit caching (`@st.cache_data`) for network optimization, with graceful handling of invalid tickers.
+* **Educational Disclaimer:** Prominent banner emphasizing experimental educational use—not financial advice.
 
 ---
 
@@ -28,12 +31,12 @@ StockPulse is an interactive financial analytics and educational machine learnin
 
 | Technology | Purpose |
 | :--- | :--- |
-| **Python 3.10+** | Primary programming language |
+| **Python 3.10+** | Core programming language |
 | **Streamlit** | Reactive web application framework |
-| **yfinance** | Historical financial market data ingestion |
-| **pandas** | Time-series data wrangling, rolling calculations, and lag feature creation |
-| **Plotly** | High-performance interactive visualizations |
-| **scikit-learn** | Supervised Linear Regression modeling and metrics computation |
+| **yfinance** | Financial market data ingestion |
+| **pandas** | Time-series data manipulation, rolling windows, and lag feature creation |
+| **Plotly** | High-performance interactive visualizations (Line, Candlestick, Multi-line) |
+| **scikit-learn** | Supervised learning (Linear Regression, Random Forest) and evaluation |
 
 ---
 
@@ -56,16 +59,15 @@ User Enters Ticker (e.g., "AAPL", "TCS.NS")
    └── Lag Features (t-1, t-2, t-3 Closing Prices)
                │
                ▼
-   Supervised Linear Regression
-   ├── Chronological Train/Test Split (80% Train, 20% Test)
-   ├── Model Fitting (X_train -> y_train)
-   └── Performance Evaluation (RMSE, R²)
+   Multi-Model Training & Chronological Split (80/20)
+   ├── Linear Regression (Baseline)
+   └── Random Forest Regressor (100 Trees Ensemble)
                │
                ▼
-      Next-Day Price Inference
+   Model Evaluation (RMSE, R²) & Next-Day Forecasts
                │
                ▼
-     Interactive Streamlit UI
+     Interactive Streamlit Dashboard
 ```
 
 ---
@@ -74,15 +76,15 @@ User Enters Ticker (e.g., "AAPL", "TCS.NS")
 
 ```text
 StockPulse/
-├── app.py              # Frontend: Streamlit dashboard, Plotly charts, UI layout
-├── model.py            # Backend: Data fetching, feature engineering, ML model, evaluation
+├── app.py              # Frontend: Streamlit dashboard, Plotly charts, multi-model tabs
+├── model.py            # Backend: Data fetching, feature engineering, Linear Regression & Random Forest
 ├── requirements.txt    # Application dependencies
 ├── README.md           # Project documentation and interview guide
 ├── .gitignore          # Excludes virtual envs, caches, and IDE files
 ├── assets/
 │   └── screenshot.png  # Application screenshot preview
 └── tests/
-    └── test_model.py   # Unit test suite verifying feature lags, predictions, and metrics
+    └── test_model.py   # Unit test suite verifying feature lags, multi-model predictions, and metrics
 ```
 
 ---
@@ -96,43 +98,24 @@ Financial time series cannot be fed into standard regression algorithms without 
 * $\text{Close\_Lag3} = \text{Close}_{t-3}$ (3 days ago)
 * $\text{Target} = \text{Close}_{t}$ (Today's close)
 
-To predict unobserved trading day $T+1$ (tomorrow), the model takes $[ \text{Close}_{T}, \text{Close}_{T-1}, \text{Close}_{T-2} ]$.
+To predict unobserved trading day $T+1$ (tomorrow), the models ingest $[ \text{Close}_{T}, \text{Close}_{T-1}, \text{Close}_{T-2} ]$.
 
-### 2. Chronological Train/Test Split
-Standard cross-validation randomly shuffles observations. Doing this in financial forecasting causes **lookahead bias (data leakage)**—the model trains on future data points to predict the past. StockPulse enforces a **strict chronological split**:
+### 2. Linear Regression vs. Random Forest
+* **Linear Regression:** Assumes a linear relationship across consecutive price lags. Fast and interpretable, but sensitive to extreme outliers.
+* **Random Forest Regressor:** An ensemble of 100 decorrelated decision trees that uses bagging (bootstrap aggregation) to capture potential non-linear regimes and cap extreme predictions.
+
+### 3. Chronological Train/Test Split
+Standard cross-validation randomly shuffles observations. Doing this in financial forecasting causes **lookahead bias (data leakage)**. StockPulse enforces a **strict chronological split**:
 * First 80% of historical days $\rightarrow$ Training set
 * Most recent 20% of historical days $\rightarrow$ Out-of-sample Test set
-
-### 3. Evaluation Metrics
-* **RMSE (Root Mean Squared Error):** Expressed directly in currency units, representing the average magnitude of prediction error.
-* **$R^2$ Score (Coefficient of Determination):** Quantifies the proportion of variance explained by the lag features.
 
 ---
 
 ## ⚠️ Limitations
 
-* **Non-Stationarity & Random Walk:** Stock prices frequently exhibit random-walk characteristics. High $R^2$ on short-term price lags often simply reflects yesterday's price persisting, rather than predictive power over market direction.
-* **Absence of Exogenous Data:** The model currently relies exclusively on historical closing prices and ignores macroeconomic data, interest rates, company fundamentals, and earnings releases.
-* **No Market Sentiment:** Market movements are heavily influenced by breaking news, social sentiment, and institutional order flow, which are not captured in price lags alone.
-* **Linear Assumption:** Linear Regression cannot capture complex non-linear volatility regimes or cyclical market shocks.
-
----
-
-## 🚀 Future Scope
-
-### Beginner
-- [ ] Incorporate trading volume trends and Moving Average Convergence Divergence (MACD).
-- [ ] Add Relative Strength Index (RSI) momentum indicator.
-
-### Intermediate
-- [ ] Compare non-linear regressors (Random Forest Regressor, XGBoost).
-- [ ] Multi-stock comparison dashboard (e.g., compare `AAPL` vs `MSFT`).
-- [ ] Candlestick chart overlay option using Plotly.
-
-### Advanced
-- [ ] Recurrent Neural Networks (LSTM / GRU) for sequence learning.
-- [ ] Real-time financial news sentiment extraction via FinBERT or LLMs.
-- [ ] Automated backtesting simulation with risk metrics (Sharpe Ratio, Max Drawdown).
+* **Non-Stationarity & Random Walk:** Stock prices frequently exhibit random-walk characteristics. A high $R^2$ on short-term price lags often simply reflects price inertia rather than predictive momentum.
+* **No Macro or Sentiment Data:** The models currently rely exclusively on price lags and ignore interest rates, inflation, earnings announcements, and breaking news sentiment.
+* **Single-Step Forecasting:** The models predict one trading day ahead; multi-step compounding forecasts require iterative simulation and accumulate error rapidly.
 
 ---
 
@@ -177,4 +160,4 @@ Open your browser at `http://localhost:8501`.
 
 ## ⚖️ Disclaimer
 
-**This software is an educational and academic demonstration only.** It is not financial advice, trading advice, or a recommendation to buy or sell securities. Always conduct your own research before making financial investments.
+**This software is an educational and academic demonstration only.** It is not financial advice, trading advice, or a recommendation to buy or sell securities.

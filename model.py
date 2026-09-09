@@ -6,15 +6,16 @@ Responsibilities:
 - Clean and validate incoming financial time-series.
 - Compute technical indicators (7-day & 30-day Moving Averages).
 - Construct lag features for autoregressive supervised learning.
-- Train a Linear Regression model with a chronological train/test split.
-- Generate next-day price predictions and evaluation metrics (RMSE, R2).
+- Train baseline Linear Regression and Random Forest Regressors with chronological splits.
+- Multi-model price forecasting, evaluation, and cross-asset comparison.
 """
 
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, List, Any
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 
 
@@ -110,8 +111,6 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Data
 
     feature_cols = ["Close_Lag1", "Close_Lag2", "Close_Lag3"]
 
-    # The latest row in df (before dropping NaNs) contains the latest 3 closes
-    # to forecast tomorrow's unobserved price:
     # Tomorrow's Lag1 = Today's Close, Lag2 = Yesterday's Close, Lag3 = 2-days-ago Close
     latest_closes = df["Close"].iloc[-3:].values
     latest_features = pd.DataFrame(
@@ -119,7 +118,6 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Data
         columns=feature_cols
     )
 
-    # Clean dataset for supervised model training
     clean_data = data.dropna(subset=feature_cols + ["Target"])
 
     X = clean_data[feature_cols]
@@ -128,43 +126,60 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Data
     return X, y, latest_features
 
 
-def train_and_predict(df: pd.DataFrame) -> float:
+def train_and_predict_models(df: pd.DataFrame) -> Dict[str, float]:
     """
-    Train a Linear Regression model on historical lag features and predict
-    the next trading day's closing price.
+    Train both Linear Regression and Random Forest Regressor models on historical
+    lag features, returning next-day predictions for each.
 
     Args:
         df: DataFrame containing historical 'Close' price data.
 
     Returns:
-        float: Predicted closing price for the next trading day.
+        Dict[str, float]: Predictions keyed by model name.
     """
     X, y, latest_features = prepare_features(df)
 
     if len(X) < 10:
-        raise ValueError("Not enough clean historical samples to train regression model.")
+        raise ValueError("Not enough clean historical samples to train regression models.")
 
-    model = LinearRegression()
-    model.fit(X, y)
+    # 1. Linear Regression Baseline
+    lr = LinearRegression()
+    lr.fit(X, y)
+    lr_pred = float(lr.predict(latest_features)[0])
 
-    prediction = model.predict(latest_features)[0]
-    return float(prediction)
+    # 2. Random Forest Regressor (Non-linear Ensemble)
+    rf = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5)
+    rf.fit(X, y)
+    rf_pred = float(rf.predict(latest_features)[0])
+
+    return {
+        "Linear Regression": round(lr_pred, 2),
+        "Random Forest": round(rf_pred, 2)
+    }
 
 
-def evaluate_model(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, float]:
+def train_and_predict(df: pd.DataFrame) -> float:
     """
-    Evaluate the Linear Regression model using a chronological train/test split.
+    Legacy wrapper for single Linear Regression prediction.
+    """
+    predictions = train_and_predict_models(df)
+    return predictions["Linear Regression"]
+
+
+def evaluate_models(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, Dict[str, float]]:
+    """
+    Evaluate both Linear Regression and Random Forest models using a
+    chronological train/test split.
 
     Important:
-        Time-series data must NOT be randomly shuffled to prevent data leakage
-        from future observations into the training phase.
+        Time-series data must NOT be randomly shuffled to prevent lookahead bias.
 
     Args:
         df: DataFrame containing historical 'Close' price data.
         test_size: Proportion of recent observations reserved for testing (default: 0.2).
 
     Returns:
-        Dict[str, float]: Dictionary with 'rmse' and 'r2' scores.
+        Dict[str, Dict[str, float]]: Model names mapped to dict of 'rmse' and 'r2'.
     """
     X, y, _ = prepare_features(df)
 
@@ -174,22 +189,81 @@ def evaluate_model(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, float]
     if split_index < 5 or (total_samples - split_index) < 5:
         raise ValueError("Insufficient data points for a meaningful train/test split.")
 
-    # Chronological split: past for training, recent slice for testing
     X_train, X_test = X.iloc[:split_index], X.iloc[split_index:]
     y_train, y_test = y.iloc[:split_index], y.iloc[split_index:]
 
-    model = LinearRegression()
-    model.fit(X_train, y_train)
+    results = {}
 
-    predictions = model.predict(X_test)
-
-    # Calculate metrics
-    # Note: scikit-learn >= 1.4 deprecated squared=False in mean_squared_error
-    mse = mean_squared_error(y_test, predictions)
-    rmse = float(np.sqrt(mse))
-    r2 = float(r2_score(y_test, predictions))
-
-    return {
-        "rmse": round(rmse, 2),
-        "r2": round(r2, 4)
+    # 1. Linear Regression
+    lr = LinearRegression()
+    lr.fit(X_train, y_train)
+    lr_preds = lr.predict(X_test)
+    lr_rmse = float(np.sqrt(mean_squared_error(y_test, lr_preds)))
+    lr_r2 = float(r2_score(y_test, lr_preds))
+    results["Linear Regression"] = {
+        "rmse": round(lr_rmse, 2),
+        "r2": round(lr_r2, 4)
     }
+
+    # 2. Random Forest
+    rf = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5)
+    rf.fit(X_train, y_train)
+    rf_preds = rf.predict(X_test)
+    rf_rmse = float(np.sqrt(mean_squared_error(y_test, rf_preds)))
+    rf_r2 = float(r2_score(y_test, rf_preds))
+    results["Random Forest"] = {
+        "rmse": round(rf_rmse, 2),
+        "r2": round(rf_r2, 4)
+    }
+
+    return results
+
+
+def evaluate_model(df: pd.DataFrame, test_size: float = 0.2) -> Dict[str, float]:
+    """
+    Legacy wrapper returning evaluation metrics for Linear Regression.
+    """
+    evals = evaluate_models(df, test_size=test_size)
+    return evals["Linear Regression"]
+
+
+def compare_stocks(tickers: List[str], period: str = "6mo") -> Tuple[pd.DataFrame, Dict[str, Dict[str, float]]]:
+    """
+    Fetch and normalize closing prices for multiple stocks to compare cumulative
+    percentage returns over time.
+
+    Args:
+        tickers: List of ticker symbols (e.g. ['AAPL', 'MSFT', 'GOOGL']).
+        period: Time window to fetch.
+
+    Returns:
+        Tuple:
+        - pd.DataFrame of cumulative percentage changes indexed by Date.
+        - Dict of summary metrics per ticker (Total Return %, Volatility %).
+    """
+    returns_df = pd.DataFrame()
+    stats = {}
+
+    for ticker in tickers:
+        clean = ticker.strip().upper()
+        if not clean:
+            continue
+        try:
+            df = get_stock_data(clean, period=period)
+            close = df["Close"]
+            # Cumulative percentage return from day 0
+            base_price = close.iloc[0]
+            pct_series = ((close - base_price) / base_price) * 100
+            returns_df[clean] = pct_series
+
+            # Daily returns standard deviation (proxy for volatility)
+            daily_pct = close.pct_change().dropna()
+            stats[clean] = {
+                "total_return": round(float(pct_series.iloc[-1]), 2),
+                "volatility": round(float(daily_pct.std() * np.sqrt(252) * 100), 2),  # Annualized volatility %
+                "current_price": round(float(close.iloc[-1]), 2),
+            }
+        except Exception:
+            continue
+
+    return returns_df, stats
